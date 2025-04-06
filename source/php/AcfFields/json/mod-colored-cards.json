@@ -67,15 +67,10 @@
                 "id": ""
             },
             "choices": {
-                "color-palette-primary-base": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#522398;\"><\/span>",
-                "color-palette-primary-dark": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#250d51;\"><\/span>",
-                "color-palette-primary-light": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#d6cfe7;\"><\/span>",
-                "color-palette-secondary-base": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#492c7f;\"><\/span>",
-                "color-background-background": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#f1eff3;\"><\/span>",
-                "color-background-complementary": "<span style=\"display:inline-block;height:30px;width:100%;;background-color:#f2f2ff;\"><\/span>",
+                "none": "None",
                 "custom-color": "Custom color"
             },
-            "default_value": "blue",
+            "default_value": "none",
             "return_format": "value",
             "multiple": 0,
             "allow_custom": 0,
@@ -219,6 +214,62 @@
                         "id": ""
                     },
                     "return_format": "array",
+                    "parent_repeater": "field_67efeb5e223df"
+                },
+                {
+                    "key": "field_67f289dc6aa72",
+                    "label": "Background color",
+                    "name": "background_color",
+                    "aria-label": "",
+                    "type": "select",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "choices": {
+                        "none": "None",
+                        "custom-color": "Custom color"
+                    },
+                    "default_value": "none",
+                    "return_format": "value",
+                    "multiple": 0,
+                    "allow_custom": 0,
+                    "search_placeholder": "",
+                    "allow_null": 0,
+                    "ui": 1,
+                    "ajax": 0,
+                    "placeholder": "",
+                    "parent_repeater": "field_67efeb5e223df"
+                },
+                {
+                    "key": "field_67f28b0cfbfbc",
+                    "label": "Custom background color",
+                    "name": "background_color_custom",
+                    "aria-label": "",
+                    "type": "color_picker",
+                    "instructions": "Beware WCAG rules for contrasts and readability",
+                    "required": 0,
+                    "conditional_logic": [
+                        [
+                            {
+                                "field": "field_67f289dc6aa72",
+                                "operator": "==",
+                                "value": "custom-color"
+                            }
+                        ]
+                    ],
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "enable_opacity": 0,
+                    "return_format": "string",
                     "parent_repeater": "field_67efeb5e223df"
                 }
             ]

@@ -2,7 +2,7 @@
 
 namespace Modularity\Module\ColoredCards;
 
-use Municipio\Helper\Image as ImageHelper;
+use Modularity\Module\ColoredCards\Helpers\ColorHelper;
 
 use Modularity\Integrations\Component\ImageResolver;
 use ComponentLibrary\Integrations\Image\Image as ImageComponentContract;
@@ -17,23 +17,16 @@ class ColoredCards extends \Modularity\Module
 
     private $baseClass;
 
-    private static $palettesToGet = [
-        'color_palette_primary',
-        'color_palette_secondary',
-        'color_background',
-    ];
-
     public function init()
     {
         $this->nameSingular = __("Colored Cards", 'modularity');
         $this->namePlural = __("Colored Cards", 'modularity');
         $this->description = __("Creates card with colored backgrounds from manual data.", 'modularity');
 
-        $this->baseClass = $this->slug . '-' . $this->ID;;
-
-        add_filter('Modularity/Block/Data', array($this, 'blockData'), 50, 3);
+        $this->baseClass = $this->slug . '-' . $this->ID;
 
         add_filter('acf/load_field/key=field_67f00af58f0c6', array($this, 'colorChoices'));
+        add_filter('acf/load_field/key=field_67f289dc6aa72', array($this, 'colorChoices'));
     }
 
     public function data(): array
@@ -44,137 +37,85 @@ class ColoredCards extends \Modularity\Module
         $data['cards']  = $this->prepareCards($fields['cards']);
 
         $data['baseClass'] = $this->baseClass;
-        $data['cardClass'] = 'colored-card u-padding--4';
+        $data['cardClass'] = 'colored-card';
         $data['columnClass'] = $this->getColumnClass();
         $data['wrapperClass'] = $this->getWrapperClass(); 
 
         $data['wrapCards'] = $fields['wrap_cards_color_container'];
 
         if ($data['wrapCards']) {
-            $data['wrapperBackgroundColor'] = $this->getWrapperBackgroundColor($fields['container_background_color']);
+            $data['wrapperBackgroundColor'] = $this->getBackgroundColor($fields['container_background_color'], $fields, 'container_background_color_custom');
         }
 
-        /* $data['manualInputs']      = [];
-        $data['ID']                = $this->ID;
-        $data['columns']           = !empty($fields['columns']) ? $fields['columns'] . '@md' : 'o-grid-4@md';
-        $data['context']           = ['module.manual-input.' . $this->template];
-        $data['ratio']             = !empty($fields['ratio']) ? $fields['ratio'] : '4:3';
-        $data['imagePosition']     = !empty($fields['image_position']) ? true : false;
-        $imageSize                 = $this->getImageSize($displayAs);
-        $data['freeTextFiltering'] = !empty($fields['free_text_filtering']) ? true : false;
-        $data['lang']              = [
-            'search' => __('Search', 'modularity'),
-        ];
-
-        $data['accordionColumnTitles'] = $this->createAccordionTitles(
-            isset($fields['accordion_column_titles']) ? $fields['accordion_column_titles'] : [], 
-            isset($fields['accordion_column_marking']) ? $fields['accordion_column_marking'] : ''
-        );
-
-        if (!empty($fields['manual_inputs']) && is_array($fields['manual_inputs'])) {
-            foreach ($fields['manual_inputs'] as $index => &$input) {
-                $input = array_filter($input, function($value) {
-                    return !empty($value) || $value === false;
-                });
-                $arr                            = array_merge($this->getManualInputDefaultValues(), $input);
-                $arr['isHighlighted']           = $this->canBeHighlighted($fields, $index);
-                // TODO: change name and migrate
-                $arr['icon']                    = $arr['box_icon'];
-                $arr['image']                   = $this->maybeGetImageImageContract($displayAs, $arr['image']) ?? $this->getImageData($arr['image'], $imageSize);
-                $arr['accordion_column_values'] = $this->createAccordionTitles($arr['accordion_column_values'], $arr['title']);
-                $arr['view']                    = $this->getInputView($arr['isHighlighted']);
-                $arr['columnSize']              = $this->getInputColumnSize($fields, $arr['isHighlighted']);
-                $arr                            = \Municipio\Helper\FormatObject::camelCase($arr);
-                $data['manualInputs'][]         = (array) $arr;
-            }
-        }
-
-        //Check if any item has an image
-        $data['anyItemHasImage'] = array_reduce($data['manualInputs'], function($carry, $item) {
-            if (isset($item['image'])) {
-                if (is_a($item['image'], ImageComponentContract::class)) {
-                    return $carry || $item['image']->getUrl();
-                }
-                return $carry || !empty($item['image']);
-            }
-            return $carry;
-        }, false); */
+        $data['cardStyles'] = $this->getCardStyles($data['cards']);
 
         return $data;
     }
 
     public function colorChoices($field) 
     {
-        $colors = $this->getColorsFromPalettes();
+        $colors = ColorHelper::getColorsFromMunicipioPalettes();
 
-        $field['choices'] = [];
+        $field['choices'] = [
+            'none' => __('None', 'modularity'),
+            'custom-color' => __('Custom color', 'modularity'),
+        ];
+
+        if (is_admin() && ($screen = get_current_screen()) && $screen->id === 'acf-field-group') {
+            return $field;
+        }
+
         foreach ($colors as $name => $hex) {
             $field['choices'][$name] = '<span style="display:inline-block;height:30px;width:100%;;background-color:' . $hex . ';"></span>';
         }
 
-        $field['choices']['custom-color'] = __('Custom color', 'modularity');
-
         return $field;
     }
 
-    private function getWrapperBackgroundColor($color) {
-        $colorMapper = [
-            'color-palette-primary-base' => 'var(--color-primary)',
-            'color-palette-primary-light' => 'var(--color-primary-light)',
-            'color-palette-primary-dark' => 'var(--color-primary-dark)',
-            'color-palette-secondary-base' => 'var(--color-secondary)',
-            'color-palette-secondary-light' => 'var(--color-secondary-light)',
-            'color-palette-secondary-dark' => 'var(--color-secondary-dark)',
-            'color-background-background' => 'var(--color-background)',
-            'color-background-complementary' => 'var(--color-background-complementary)',
-        ];
+    private function getCardStyles($cardData) {
+        $cardStyles = [];
 
-        if ($color === 'custom-color') {
-            $fields = $this->getFields();
-
-            if (!isset($fields['container_background_color_custom'])) {
-                return false;
+        foreach ($cardData as $card) {
+            if ($card['background']) {
+                $cardStyles[$card['id']] = [
+                    'background' => $card['background'],
+                    'color' => ColorHelper::getBestContrastColor($card['background'])
+                ];
             }
-
-            return $fields['container_background_color_custom'];
         }
-        
-        if (!isset($colorMapper[$color])) {
+
+        if (sizeof($cardStyles) === 0) {
             return false;
         }
 
-        return $colorMapper[$color];
+        return $cardStyles;
     }
-
-    private function getColorsFromPalettes() 
-    {
-        $colorsToGet = [
-            'base',
-            'dark',
-            'light',
-            'background',
-            'complementary',
-        ];
-        $hexesToIgnore = [
-            '#ffffff',
-        ];
-
-        $colors = [];
-        $rawColors = \Municipio\Helper\Color::getPalettes(self::$palettesToGet);
-
-        foreach ($rawColors as $paletteName => $palette) {
-            if (!is_array($palette)) {
-                continue;
+        
+    /**
+     * Get proper background color value for CSS
+     *
+     * @param  string Color value for field
+     * @param  array Array of fields from where to search for custom color value
+     * @param  string Name of field to get custom color value from within fields array
+     * @return bool|string
+     */
+    private function getBackgroundColor(string $color, array $fields, string $customColorField = 'background_color_custom') : bool|string 
+    {  
+        // Get custom color from correct field in fields
+        if ($color === 'custom-color') {
+            if (!isset($fields[$customColorField])) {
+                return false;
             }
 
-            foreach ($palette as $color => $hex) {
-                if (in_array($color, $colorsToGet) && !in_array(strtolower($hex), $hexesToIgnore)) {
-                    $colors[str_replace('_', '-', $paletteName) . '-' . $color] = $hex;
-                }
-            }
+            return $fields[$customColorField];
         }
 
-        return array_unique($colors);
+        // If we have a CSS var, wrap it in proper CSS function
+        if (strpos($color, '--') === 0) {
+            return "var({$color})";
+        }
+
+        return false;
     }
 
     private function prepareCards(array $cardData) 
@@ -187,11 +128,13 @@ class ColoredCards extends \Modularity\Module
 
         foreach ($cardData as $card) {
             $preparedData[] = [
+                'id' => uniqid(),
                 'heading' => $card['heading'],
                 'content' => !empty($card['content']) ? $card['content'] : false,
                 'image' => is_int($card['image']) ? $this->getImageContract($card['image']) : false,
                 'link' => $card['link'],
                 'columnClass' => $this->getColumnClass(),
+                'background' => $this->getBackgroundColor($card['background_color'], $card)
             ];
         }
 
@@ -200,7 +143,21 @@ class ColoredCards extends \Modularity\Module
 
     private function getColumnClass() 
     {
-        return 'o-grid-4@md';
+        $fields = $this->getFields();
+
+        switch ($fields['cards_per_column']) {
+            case 2:
+                $class = 'o-grid-6@md';
+                break;
+            case 3: 
+                $class = 'o-grid-4@md';
+                break;
+            case 4: 
+                $class = 'o-grid-6@md o-grid-3@lg';
+                break;
+        }
+
+        return $class;
     }
 
     private function getWrapperClass() 
@@ -211,7 +168,7 @@ class ColoredCards extends \Modularity\Module
             'u-padding__y--4@sm',
             'u-padding__y--4@md',
             'u-padding__y--8@lg',
-            'u-padding__y--8@xl',
+            'u-padding__y--12@xl',
         ];
 
         return implode(' ', $classes);
@@ -227,106 +184,6 @@ class ColoredCards extends \Modularity\Module
     }
 
     /**
-     * @return array Array with default values
-     */
-    private function getManualInputDefaultValues(): array
-    {
-        return [
-            'title'                     => null,
-            'content'                   => null,
-            'link'                      => null,
-            'link_text'                 => __("Read more", 'modularity'),
-            'image'                     => null,
-            'accordion_column_values'   => [],
-            'box_icon'                  => null
-        ];
-    }
-
-    /**
-     * Returns the input column size based on the given fields.
-     *
-     * @param array $fields The array of fields.
-     * @return string The input column size.
-     */
-    private function getInputColumnSize(array $fields): string
-    {
-        $columnSize = !empty($fields['columns']) ? $fields['columns'] : 'o-grid-4';
-        
-        return $columnSize . '@md';
-    }
-
-    /**
-     * Get all data attached to the image.
-     * 
-     * @param array $fields All the acf fields
-     * @param array|string $size Array containing height and width OR predefined size as a string.
-     * @return array
-     */
-    private function getImageData($imageId = false, $size = [400, 225])
-    {
-        if (!empty($imageId)) {
-            $image = ImageHelper::getImageAttachmentData($imageId, $size);
-
-            if ($image) {
-                $image['removeCaption'] = true;
-            }
-
-            unset($image['title']);
-            unset($image['description']);
-
-            return $image;
-        }
-
-        return false;
-    }
-
-    /**
-     * Decides the size of the image based on view
-     * 
-     * @param string $displayAs The name of the template/view.
-     * @return array
-     */
-    private function getImageSize($displayAs, $return = "both"): null|array|int {
-        switch ($displayAs) {
-            case "segment": 
-                $dimensions =  [1920, 1080];
-            case "block":
-                $dimensions =  [1024, 1024];
-            case "collection": 
-            case "box":
-                $dimensions =  [768, 768];
-            default: 
-                $dimensions = [1440, 810];
-        }
-
-        if($return == "width") {
-            return $dimensions[0] ?? null;
-        }
-
-        if($return == "height") {
-            return $dimensions[1] ?? null;
-        }
-
-        return $dimensions;
-    }
-
-    /**
-     * Add full width setting to frontend.
-     * @param [array] $viewData
-     * @param [array] $block
-     * @param [object] $module
-     * @return array
-     */
-    public function blockData($viewData, $block, $module) {
-        if (strpos($block['name'], "acf/manualinput") === 0 && $block['align'] == 'full' && !is_admin()) {
-            $viewData['stretch'] = true;
-        } else {
-            $viewData['stretch'] = false;
-        }
-        return $viewData;
-    }
-
-    /**
      * Get the template file name for rendering.
      *
      * This function returns the name of the template file to use for rendering
@@ -337,13 +194,7 @@ class ColoredCards extends \Modularity\Module
      * @return string The template file name.
      */
     public function template() 
-    {
-        $path = __DIR__ . "/views/" . $this->template . ".blade.php";
-
-        if (file_exists($path)) {
-            return $this->template . ".blade.php";
-        }
-        
+    {   
         return 'base.blade.php';
     }
 

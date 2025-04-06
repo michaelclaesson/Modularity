@@ -1,7 +1,8 @@
 @card([
-    'link' => $card['link'] ? $card['link']['url'] : false
+    'link' => $card['link'] ? $card['link']['url'] : false,
+    'classList' => ["{$cardClass}-{$card['id']}"]
 ])
-    <div class="{{ $cardClass }}" style="background-color: pink;">
+    <div class="{{ $cardClass }} u-padding--4">
         <div class="{{ $cardClass }}__heading">
             @typography([
                 'element' => 'h2',

@@ -16,3 +16,14 @@
 @else
     @include('cards')
 @endif
+<style>
+    @if ($cardStyles)
+        @foreach ($cardStyles as $cardId => $values)
+            .{{ $cardClass }}-{{ $cardId }},
+            .{{ $cardClass }}-{{ $cardId }}:hover {
+                background: {{ $values['background'] }} !important;
+                color: {{ $values['color'] }} !important;
+            }
+        @endforeach
+    @endif
+</style>
