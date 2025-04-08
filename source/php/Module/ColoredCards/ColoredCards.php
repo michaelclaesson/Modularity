@@ -2,10 +2,13 @@
 
 namespace Modularity\Module\ColoredCards;
 
-use Modularity\Module\ColoredCards\Helpers\ColorHelper;
+use Modularity\Module\ColoredCards\Helpers\Color as ColorHelper;
+use Modularity\Module\ColoredCards\Helpers\Config as ConfigHelper;
 
 use Modularity\Integrations\Component\ImageResolver;
 use ComponentLibrary\Integrations\Image\Image as ImageComponentContract;
+
+use Modularity\Module\ColoredCards\Models\Config;
 
 class ColoredCards extends \Modularity\Module
 {
@@ -17,6 +20,8 @@ class ColoredCards extends \Modularity\Module
 
     private $baseClass;
 
+    private Config $config;
+
     public function init()
     {
         $this->nameSingular = __("Colored Cards", 'modularity');
@@ -24,6 +29,8 @@ class ColoredCards extends \Modularity\Module
         $this->description = __("Creates card with colored backgrounds from manual data.", 'modularity');
 
         $this->baseClass = $this->slug . '-' . $this->ID;
+
+        $this->config = ConfigHelper::getConfig();
 
         add_filter('acf/load_field/key=field_67f00af58f0c6', array($this, 'colorChoices'));
         add_filter('acf/load_field/key=field_67f289dc6aa72', array($this, 'colorChoices'));
@@ -58,15 +65,32 @@ class ColoredCards extends \Modularity\Module
 
         $field['choices'] = [
             'none' => __('None', 'modularity'),
-            'custom-color' => __('Custom color', 'modularity'),
         ];
+
+        if ($this->config->isCustomColorsAllowed()) {
+            $field['choices']['custom-color'] = __('Custom color', 'modularity');
+        }
 
         if (is_admin() && ($screen = get_current_screen()) && $screen->id === 'acf-field-group') {
             return $field;
         }
 
-        foreach ($colors as $name => $hex) {
-            $field['choices'][$name] = '<span style="display:inline-block;height:30px;width:100%;;background-color:' . $hex . ';"></span>';
+        foreach ($colors as $var => $hex) {
+            $field['choices'][$var] = '
+                <span style="display:inline-flex;gap:.5rem;align-items:center;margin-top:2px;margin-bottom:2px;">
+                    <span style="border-radius:5px;display:inline-block;height:18px;width:100px;;background-color:' . $hex . ';"></span>
+                    <span>' . ColorHelper::mapCssVarToColorName($var) . '</span>
+                </span>
+            ';
+        }
+
+        foreach ($this->config->getColors() as $color) {
+            $field['choices'][$color->getHex()] = '
+                <span style="display:inline-flex;gap:.5rem;align-items:center;margin-top:2px;margin-bottom:2px;">
+                    <span style="border-radius:5px;display:inline-block;height:18px;width:100px;;background-color:' . $color->getHex() . ';"></span>
+                    <span>' . $color->getName() . '</span>
+                </span>
+            ';
         }
 
         return $field;
@@ -108,6 +132,11 @@ class ColoredCards extends \Modularity\Module
             }
 
             return $fields[$customColorField];
+        }
+
+        // If hex code
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+            return $color;
         }
 
         // If we have a CSS var, wrap it in proper CSS function

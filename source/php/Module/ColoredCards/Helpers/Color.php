@@ -2,7 +2,7 @@
 
 namespace Modularity\Module\ColoredCards\Helpers;
 
-class ColorHelper {
+class Color {
     private static $palettesToGet = [
         'color_palette_primary',
         'color_palette_secondary',
@@ -20,6 +20,26 @@ class ColorHelper {
         'color-background-complementary' => '--color-background-complementary',
     ];
 
+    private static $colorNames;
+
+    public static function getColorNames()
+    {
+        if (!isset(self::$colorNames)) {
+            self::$colorNames = [
+                'color-palette-primary-base' => __('Primary color', 'modularity'),
+                'color-palette-primary-light' => __('Primary color light', 'modularity'),
+                'color-palette-primary-dark' => __('Primary color dark', 'modularity'),
+                'color-palette-secondary-base' => __('Secondary color', 'modularity'),
+                'color-palette-secondary-light' => __('Secondary color light', 'modularity'),
+                'color-palette-secondary-dark' => __('Secondary color dark', 'modularity'),
+                'color-background-background' => __('Background color', 'modularity'),
+                'color-background-complementary' => __('Background color complementary', 'modularity'),
+            ];
+        }
+
+        return self::$colorNames;
+    }
+
     public static function mapPaletteColorToCssVar($paletteColorName) 
     {
         if (!isset(self::$colorMap[$paletteColorName])) {
@@ -27,6 +47,22 @@ class ColorHelper {
         }
 
         return self::$colorMap[$paletteColorName];
+    }
+
+    public static function mapCssVarToColorName($cssVar) 
+    {
+        if (preg_match('/var\(\s*(--[^)]+)\s*\)/', $cssVar, $matches)) {
+            $cssVar = $matches[1];
+        }
+
+        $colorNames = self::getColorNames();
+        $colorId = array_flip(self::$colorMap)[$cssVar];
+
+        if (!isset($colorNames[$colorId])) {
+            return false;
+        }
+
+        return $colorNames[$colorId];
     }
 
     public static function mapCssVarToHexColor($cssVar) 
@@ -43,7 +79,7 @@ class ColorHelper {
     public static function getBestContrastColor(string $backgroundColor, bool $returnAnyColor = false): string
     {
         if (strpos($backgroundColor, 'var(') === 0) {
-            $backgroundColor = ColorHelper::mapCssVarToHexColor($backgroundColor);
+            $backgroundColor = self::mapCssVarToHexColor($backgroundColor);
         }
 
         [$r, $g, $b] = self::hexToRgb($backgroundColor);
