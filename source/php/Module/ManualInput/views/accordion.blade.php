@@ -8,7 +8,7 @@
         'context' => $context
     ])
         @if (empty($hideTitle) && !empty($postTitle) && !$accordionHeadingTitle)
-            <div class="c-card__header">
+            <div class="c-card__header @if($accordionSpacedSections) u-margin__bottom--2 u-rounded__bottom__left--16 u-rounded__bottom__right--16 @endif">
                 @include('partials.post-title', ['variant' => 'h4', 'classList' => []])
             </div>
         @endif
