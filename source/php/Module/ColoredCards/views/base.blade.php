@@ -6,7 +6,9 @@
     </div>
     <style>
         .{{ $baseClass }}__wrapper {
-            background: {{ $wrapperBackgroundColor }};
+            @if ($wrapperBackgroundColor)
+                background: {{ $wrapperBackgroundColor }};
+            @endif
             position: relative;
             left: 50%;
             width: calc(100vw - var(--scrollbar));
