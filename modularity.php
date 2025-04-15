@@ -45,6 +45,7 @@ add_action('plugins_loaded', function () {
     $acfExportManager->setExportFolder(MODULARITY_PATH . 'source/php/AcfFields/');
     $acfExportManager->autoExport(array(
         'mod-booking'               => 'group_56a89f42b432b',
+        'mod-colored-cards'         => 'group_67efeb5e4b211',
         'mod-contact-info'          => 'group_56a0a3928c017',
         'mod-contact-contacts'      => 'group_5757b93da8d5c',
         'mod-contacts'              => 'group_5805e5dc0a3be',
