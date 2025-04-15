@@ -176,6 +176,9 @@ class Posts extends \Modularity\Module
         // Archive link title
         $data['archiveLinkTitle'] = $this->fields['archive_link_title'];
 
+        // Archive link position
+        $data['archiveLinkAbovePosts'] = $this->fields['archive_link_above_posts'];
+
         //Add filters to archive link
         if($data['archiveLinkUrl'] && is_array($data['filters']) && !empty($data['filters'])) {
             $data['archiveLinkUrl'] .= "?" . http_build_query($data['filters']);
