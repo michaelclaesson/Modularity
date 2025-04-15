@@ -161,13 +161,24 @@ class ColoredCards extends \Modularity\Module
                 'heading' => $card['heading'],
                 'content' => !empty($card['content']) ? $card['content'] : false,
                 'image' => is_int($card['image']) ? $this->getImageContract($card['image']) : false,
-                'link' => $card['link'],
+                'link' => $this->prepareLink($card['link']),
                 'columnClass' => $this->getColumnClass(),
                 'background' => $this->getBackgroundColor($card['background_color'], $card)
             ];
         }
 
         return $preparedData;
+    }
+
+    private function prepareLink(array $link) {
+        $link['ariaTitle'] = false;
+
+        if (!isset($link['title']) || empty($link['title'])) {
+            $link['title'] = __('Read more', 'modularity');
+            $link['ariaTitle'] = __('Read more about', 'modularity');;
+        }
+
+        return $link;
     }
 
     private function getColumnClass() 

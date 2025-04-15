@@ -30,7 +30,11 @@
                     'classList' => ['u-display--flex', 'u-align-items--center', 'u-gap-1'],
                     'variant' => 'bold'
                 ])
-                    {{ $card['link']['title'] }}
+                    @if ($card['link']['ariaTitle'])
+                        <span aria-label="{{ $card['link']['ariaTitle'] }} {{ $card['heading'] }}">{{ $card['link']['title'] }}</span>
+                    @else
+                        {{ $card['link']['title'] }}
+                    @endif
                     @icon([
                         'icon' => 'trending_flat',
                         'size' => 'lg'
