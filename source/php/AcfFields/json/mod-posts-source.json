@@ -50,17 +50,9 @@
                 ]
             ],
             "wrapper": {
-                "width": "",
-                "class": "",
-                "id": ""
+                "width": ""
             },
-            "choices": {
-                "Place": "Place",
-                "School": "School",
-                "Project": "Project",
-                "JobPosting": "JobPosting",
-                "SpecialAnnouncement": "SpecialAnnouncement"
-            },
+            "choices": [],
             "default_value": false,
             "return_format": "value",
             "multiple": 0,
@@ -181,8 +173,8 @@
                 "id": ""
             },
             "default_value": 10,
-            "min": 1,
-            "max": 100,
+            "min": "1",
+            "max": "100",
             "step": "",
             "placeholder": "",
             "prepend": "",
@@ -260,62 +252,6 @@
             "ui_off_text": ""
         },
         {
-            "key": "field_67e6e75d155eb",
-            "label": "Link title",
-            "name": "archive_link_title",
-            "aria-label": "",
-            "type": "text",
-            "instructions": "",
-            "required": 1,
-            "conditional_logic": [
-                [
-                    {
-                        "field": "field_57ecf1007b749",
-                        "operator": "==",
-                        "value": "1"
-                    }
-                ]
-            ],
-            "wrapper": {
-                "width": "",
-                "class": "",
-                "id": ""
-            },
-            "default_value": "",
-            "maxlength": "",
-            "placeholder": "",
-            "prepend": "",
-            "append": ""
-        },
-        {
-            "key": "field_67e6eed195ff6",
-            "label": "Archive link above posts",
-            "name": "archive_link_above_posts",
-            "aria-label": "",
-            "type": "true_false",
-            "instructions": "",
-            "required": 0,
-            "conditional_logic": [
-                [
-                    {
-                        "field": "field_57ecf1007b749",
-                        "operator": "==",
-                        "value": "1"
-                    }
-                ]
-            ],
-            "wrapper": {
-                "width": "",
-                "class": "",
-                "id": ""
-            },
-            "message": "",
-            "default_value": 0,
-            "ui_on_text": "",
-            "ui_off_text": "",
-            "ui": 1
-        },
-        {
             "key": "field_6710ff6562e8c",
             "label": "From network sites",
             "name": "posts_data_network_sources",
@@ -344,16 +280,7 @@
                 "class": "",
                 "id": ""
             },
-            "choices": {
-                "1": "Municipio",
-                "201": "Familjen Helsingborg",
-                "202": "Traineeprogrammet Familjen Helsingborg",
-                "203": false,
-                "204": false,
-                "205": "Intran\u00e4t",
-                "206": false,
-                "217": false
-            },
+            "choices": [],
             "default_value": [],
             "return_format": "array",
             "multiple": 1,
@@ -397,4 +324,4 @@
     "acfe_meta": "",
     "acfe_note": ""
 }]
-
+
