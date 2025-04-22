@@ -66,10 +66,7 @@
                 "class": "",
                 "id": ""
             },
-            "choices": {
-                "none": "None",
-                "custom-color": "Custom color"
-            },
+            "choices": [],
             "default_value": "none",
             "return_format": "value",
             "multiple": 0,
@@ -230,10 +227,7 @@
                         "class": "",
                         "id": ""
                     },
-                    "choices": {
-                        "none": "None",
-                        "custom-color": "Custom color"
-                    },
+                    "choices": [],
                     "default_value": "none",
                     "return_format": "value",
                     "multiple": 0,

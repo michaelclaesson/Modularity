@@ -70,8 +70,6 @@
                 'id' => '',
             ),
             'choices' => array(
-                'none' => __('None', 'modularity'),
-                'custom-color' => __('Custom color', 'modularity'),
             ),
             'default_value' => __('none', 'modularity'),
             'return_format' => 'value',
@@ -234,8 +232,6 @@
                         'id' => '',
                     ),
                     'choices' => array(
-                        'none' => __('None', 'modularity'),
-                        'custom-color' => __('Custom color', 'modularity'),
                     ),
                     'default_value' => __('none', 'modularity'),
                     'return_format' => 'value',

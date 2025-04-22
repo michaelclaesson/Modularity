@@ -61,6 +61,10 @@ class ColoredCards extends \Modularity\Module
 
     public function colorChoices($field) 
     {
+        if (is_admin() && ($screen = get_current_screen()) && $screen->id === 'acf-field-group') {
+            return $field;
+        }
+        
         $colors = ColorHelper::getColorsFromMunicipioPalettes();
 
         $field['choices'] = [
@@ -69,10 +73,6 @@ class ColoredCards extends \Modularity\Module
 
         if ($this->config->isCustomColorsAllowed()) {
             $field['choices']['custom-color'] = __('Custom color', 'modularity');
-        }
-
-        if (is_admin() && ($screen = get_current_screen()) && $screen->id === 'acf-field-group') {
-            return $field;
         }
 
         foreach ($colors as $var => $hex) {
