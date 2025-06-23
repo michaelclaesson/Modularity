@@ -14,6 +14,7 @@ use Modularity\Module\Posts\Helper\GetPosts\{
     GetPosts,
     GetPostsFromMultipleSites
 };
+use Modularity\Module\Posts\Helper\GetPosts\UserGroupResolver\UserGroupResolver;
 
 /**
  * Class Posts
@@ -207,11 +208,11 @@ class Posts extends \Modularity\Module
     }
 
     /**
-     * Get pagination identifier
+     * Get pagination query var name.
      * 
      * @return string
      */
-    private function getPagintationIdentifier():string {
+    private function getPaginationQueryVarName():string {
         return "{$this->post_type}-{$this->ID}-page";
     }
 
@@ -221,7 +222,7 @@ class Posts extends \Modularity\Module
      * @return int Default is 1
      */
     private function getPageNumber():int {
-        return filter_input( INPUT_GET, $this->getPagintationIdentifier(), FILTER_SANITIZE_NUMBER_INT ) ?: 1;
+        return filter_input(INPUT_GET, $this->getPaginationQueryVarName(), FILTER_VALIDATE_INT) ?: 1;
     }
 
     /**
@@ -238,13 +239,13 @@ class Posts extends \Modularity\Module
         }
         
         $listItemOne = [
-            'href' => remove_query_arg($this->getPagintationIdentifier()),
+            'href' => remove_query_arg($this->getPaginationQueryVarName()),
             'label' => __("First page", 'modularity')
         ];
 
         $listItems = array_map(function($pageNumber) {
             return [
-                'href' => add_query_arg($this->getPagintationIdentifier(), $pageNumber),
+                'href' => add_query_arg($this->getPaginationQueryVarName(), $pageNumber),
                 'label' => sprintf(__("Page %d", 'modularity'), $pageNumber)
             ];
         }, range(2, $maxNumPages));
@@ -386,7 +387,8 @@ class Posts extends \Modularity\Module
                 array_map(fn($siteOption) => $siteOption['value'], $this->fields['posts_data_network_sources']),
                 $wpdb,
                 WpService::get(),
-                $postTypesFromSchemaTypeResolver
+                $postTypesFromSchemaTypeResolver,
+                new UserGroupResolver(WpService::get())
             );
         } else {
             $this->getPostsHelper = new GetPosts(

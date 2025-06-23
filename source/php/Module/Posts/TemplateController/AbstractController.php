@@ -5,6 +5,7 @@ namespace Modularity\Module\Posts\TemplateController;
 use Modularity\Helper\WpService as WpServiceHelper;
 use Modularity\Module\Posts\Helper\Column as ColumnHelper;
 use Modularity\Module\Posts\Helper\DomainChecker;
+use WP_Post;
 use WpService\WpService;
 
 /**
@@ -101,7 +102,9 @@ class AbstractController
     */
     public function addPostData($posts = [])
     {
-        $posts = array_map(function($post) {
+        static $anyPostIsFromOtherBlog = false;
+
+        $posts = array_map(function($post) use (&$anyPostIsFromOtherBlog) {
             $data['taxonomiesToDisplay'] = !empty($this->fields['taxonomy_display'] ?? null) ? $this->fields['taxonomy_display'] : [];
             $helperClass = '\Municipio\Helper\Post';
             $helperMethod = 'preparePostObject';
@@ -112,8 +115,12 @@ class AbstractController
                 return $post;
             }
 
+            if( $this->shouldAddBlogNameToPost($post, $anyPostIsFromOtherBlog) ) {
+                $anyPostIsFromOtherBlog = true;
+                $post = $this->addBlogNameToPost($post);
+            }
+
             if(!empty($post->originalBlogId)) {
-                $post->originalSite = $this->getWpService()->getBlogDetails($post->originalBlogId)->blogname;
                 $this->getWpService()->switchToBlog($post->originalBlogId);
             }
 
@@ -123,7 +130,9 @@ class AbstractController
                 $post = call_user_func([$helperClass, $helperArchiveMethod], $post, $data);
             }
 
-            $this->getWpService()->restoreCurrentBlog();
+            if(!empty($post->originalBlogId)) {
+                $this->getWpService()->restoreCurrentBlog();
+            }
             
             return $post;
 
@@ -145,6 +154,35 @@ class AbstractController
         }
 
         return $posts;
+    }
+
+    /**
+     * Check if the blog name should be added to the post.
+     *
+     * @param object $post
+     * @param bool $force
+     *
+     * @return bool
+    */
+    public function shouldAddBlogNameToPost(object $post, bool $force = false): bool {
+        return !empty($post->originalBlogId) || $force;
+    }
+
+    /**
+     * Add blog name to the post object.
+     *
+     * @param WP_Post $post
+     *
+     * @return WP_Post
+    */
+    private function addBlogNameToPost(WP_Post $post ):WP_Post {
+        if(!empty($post->originalBlogId)) {
+            $post->originalSite = $this->getWpService()->getBlogDetails($post->originalBlogId)->blogname;
+        } else {
+            $post->originalSite = $this->getWpService()->getBlogDetails()->blogname;
+        }
+
+        return $post;
     }
 
     /**
@@ -211,10 +249,7 @@ class AbstractController
     {
         $post->excerptShort         = in_array('excerpt', $this->data['posts_fields'] ?? []) ? $post->excerptShort : false;
         $post->postTitle            = in_array('title', $this->data['posts_fields'] ?? []) ? $post->getTitle() : false;
-        $post->image                = in_array('image', $this->data['posts_fields'] ?? []) ? $this->getImageContractOrByRatio(
-            $post->images ?? null, 
-            $post->imageContract ?? null
-        ) : [];
+        $post->image                = in_array('image', $this->data['posts_fields'] ?? []) ? $post->getImage() : [];
         $post->hasPlaceholderImage  = in_array('image', $this->data['posts_fields'] ?? []) && empty($post->image) ? true : false;
         $post->commentCount         = in_array('comment_count', $this->data['posts_fields'] ?? []) ? (string) $post->getCommentCount() : false;
         $post->readingTime          = in_array('reading_time', $this->data['posts_fields'] ?? []) ? $post->readingTime : false;
@@ -240,54 +275,6 @@ class AbstractController
 
     public function postUsesSchemaTypeEvent(object $post):bool {
         return $post->getSchemaProperty('@type') === 'Event';
-    }
-
-    /**
-     * Get the image based on ratio and index.
-     *
-     * @param array $images
-     *
-     * @return mixed|null
-    */
-    private function getImageBasedOnRatio(array $images) {
-        if (empty($this->data['posts_display_as']) || empty($images['thumbnail16:9']['src'])) return false;
-
-        if (!empty($this->data['highlight_first_column']) && in_array($this->data['posts_display_as'], ['block', 'index'])) {
-            return $images['featuredImage'];
-        }
-
-        switch ($this->data['posts_display_as']) {
-            case 'grid': 
-                return $images['thumbnail' . $this->data['ratio']] ?? false;
-            default: 
-                return $images['thumbnail16:9'];
-        }
-
-        return false;
-    }
-
-    /**
-     * Get image by contract or by ratio.
-     *
-     * @param array $images
-     * @param mixed $imageContract
-     *
-     * @return mixed
-    */
-    private function getImageContractOrByRatio(array $images, $imageContract) {
-
-        //Image by contract
-        if(is_a($imageContract, 'ComponentLibrary\Integrations\Image\Image') && !empty($imageContract->getUrl())) {
-            return $imageContract;
-        }
-
-        //Image by ratio
-        $imageByRatio = $this->getImageBasedOnRatio($images);
-        if(isset($imageByRatio['src']) && !empty($imageByRatio['src'])) {
-            return $imageByRatio['src'];
-        }
-
-        return false;
     }
 
     /**

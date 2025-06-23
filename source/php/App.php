@@ -2,6 +2,7 @@
 
 namespace Modularity;
 
+use Modularity\Helper\WpService;
 use Modularity\Private\PrivateAcfFields;
 
 class App

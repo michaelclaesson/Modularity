@@ -6,10 +6,12 @@ use Modularity\Module\Posts\Helper\GetPosts\GetPostsInterface;
 use Modularity\Module\Posts\Helper\GetPosts\PostsResult;
 use Modularity\Module\Posts\Helper\GetPosts\PostsResultInterface;
 use Modularity\Module\Posts\Helper\GetPosts\PostTypesFromSchemaType\PostTypesFromSchemaTypeResolverInterface;
+use Modularity\Module\Posts\Helper\GetPosts\UserGroupResolver\UserGroupResolverInterface;
 use WpService\Contracts\{
     EscSql,
     GetBlogDetails,
     GetBlogPost,
+    GetOption,
     IsUserLoggedIn,
     RestoreCurrentBlog,
     SwitchToBlog,
@@ -22,15 +24,16 @@ class GetPostsFromMultipleSites implements GetPostsInterface
         private int $page,
         private array $siteIds,
         private \wpdb $wpdb,
-        private IsUserLoggedIn&EscSql&GetBlogDetails&SwitchToBlog&RestoreCurrentBlog&GetBlogPost $wpService,
-        private PostTypesFromSchemaTypeResolverInterface $postTypesFromSchemaTypeResolver
+        private IsUserLoggedIn&EscSql&GetBlogDetails&SwitchToBlog&RestoreCurrentBlog&GetBlogPost&GetOption $wpService,
+        private PostTypesFromSchemaTypeResolverInterface $postTypesFromSchemaTypeResolver,
+        private UserGroupResolverInterface $userGroupResolver
     ) {}
 
     public function getSql(): string {
         return $this->buildUnionSql(array_map(
             fn($site) => $this->buildSiteQuery($site, $this->toSqlList($this->getPostStatuses())),
             $this->getValidSites()
-        ));
+        )) . $this->getOrderBySql();
     }
 
     public function getPosts(): PostsResultInterface
@@ -42,7 +45,7 @@ class GetPostsFromMultipleSites implements GetPostsInterface
         if (empty($sites)) {
             return $this->formatResponse([], 0, []);
         }
-        
+
         $dbResults = $this->wpdb->get_results($this->getSql());
 
         $postsPerPage = $this->getPostsPerPage();
@@ -50,9 +53,16 @@ class GetPostsFromMultipleSites implements GetPostsInterface
         $maxNumPages = $postsPerPage > 0 ? (int)ceil(count($dbResults) / $postsPerPage) : 0;
         $pagedResults = array_slice($dbResults, $offset, $postsPerPage);
 
-        $posts = $this->fetchPosts($pagedResults, $postStatuses, $currentBlogId);
+        // Separate sticky and non-sticky posts for clarity and maintainability
+        $nonStickyPosts = array_filter( $pagedResults, fn($post) => (int)$post->is_sticky === 0 );
+        $stickyPosts = array_filter( $pagedResults, fn($post) => (int)$post->is_sticky === 1 );
 
-        return $this->formatResponse($posts, $maxNumPages, []);
+        // Fetch post objects for both sticky and non-sticky posts
+        $posts = $this->fetchPosts($nonStickyPosts, $postStatuses, $currentBlogId);
+        $stickyPostObjects = $this->fetchPosts($stickyPosts, $postStatuses, $currentBlogId);
+
+        // Return formatted response with clear variable names
+        return $this->formatResponse($posts, $maxNumPages, $stickyPostObjects);
     }
 
     private function getPostStatuses(): array
@@ -82,23 +92,31 @@ class GetPostsFromMultipleSites implements GetPostsInterface
         $this->wpService->switchToBlog($site);
         $postTypes = $this->resolvePostTypes();
         $postTypesSql = $this->toSqlList($postTypes);
+        $stickyPostIds = $this->getStickyPostIds();
         $this->wpService->restoreCurrentBlog();
+
+        // Prepare a comma-separated list of sticky post IDs for SQL IN clause
+        $stickyIdsSql = !empty($stickyPostIds)
+            ? implode(',', array_map('intval', $stickyPostIds))
+            : '0';
 
         return "
             SELECT DISTINCT
-                '{$site}' AS blog_id,
-                posts.ID AS post_id,
-                posts.post_date,
-                posts.post_title,
-                posts.post_modified,
-                posts.menu_order,
-                CASE WHEN postmeta1.meta_value COLLATE utf8mb4_swedish_ci THEN postmeta1.meta_value ELSE 0 END AS is_sticky
+            '{$site}' AS blog_id,
+            posts.ID AS post_id,
+            posts.post_date,
+            posts.post_title,
+            posts.post_modified,
+            posts.menu_order,
+            CASE WHEN posts.ID IN ($stickyIdsSql) THEN 1 ELSE 0 END AS is_sticky,
+            postmeta2.meta_value AS user_group_visibility
             FROM $postsTable posts
-            LEFT JOIN $postMetaTable postmeta1 ON posts.ID = postmeta1.post_id AND postmeta1.meta_key = 'is_sticky'
+            LEFT JOIN $postMetaTable postmeta2 
+            ON posts.ID = postmeta2.post_id AND postmeta2.meta_key = 'user-group-visibility'
             WHERE
-                posts.post_type IN ($postTypesSql)
-                AND posts.post_status IN ($postStatusesSql)
-                AND posts.post_date < NOW()
+            posts.post_type IN ($postTypesSql)
+            AND posts.post_status IN ($postStatusesSql)
+            AND posts.post_date < NOW()
         ";
     }
 
@@ -113,23 +131,73 @@ class GetPostsFromMultipleSites implements GetPostsInterface
         };
     }
 
+    /**
+     * Retrieves sticky post IDs for the resolved post types.
+     *
+     * @return int[] Array of sticky post IDs.
+     */
+    private function getStickyPostIds(): array
+    {
+        $postTypes = $this->resolvePostTypes();
+
+        $stickyIds = [];
+        foreach ($postTypes as $postType) {
+            $option = $this->wpService->getOption('sticky_post_' . $postType, []);
+            if (is_array($option)) {
+                $stickyIds = array_merge($stickyIds, $option);
+            }
+        }
+
+        return array_map('intval', $stickyIds);
+    }
+
     private function buildUnionSql(array $unionQueries): string
     {
-        $sql = 'SELECT blog_id, post_id, post_date, is_sticky, post_title, post_modified, menu_order FROM ('
+        $unionSql = 'SELECT blog_id, post_id, post_date, is_sticky, post_title, post_modified, menu_order, user_group_visibility FROM ('
             . implode(' UNION ', $unionQueries)
             . ') as posts';
 
-        $orderby = $this->fields['posts_sort_by'] ?? 'date';
-        $order = strtoupper($this->fields['posts_sort_order'] ?? 'DESC');
-        $orderSql = match ($orderby) {
-            'date' => " ORDER BY post_date $order",
-            'title' => " ORDER BY post_title $order",
-            'modified' => " ORDER BY post_modified $order",
-            'menu_order' => " ORDER BY menu_order $order",
-            'rand' => " ORDER BY RAND()",
-            default => " ORDER BY post_date $order",
-        };
-        return $sql . $orderSql;
+        $userGroup = $this->userGroupResolver->getUserGroup();
+
+        if( !empty($userGroup) ) {
+            $unionSql .= sprintf(" WHERE user_group_visibility = '%s' OR user_group_visibility IS NULL", $userGroup);
+        } else {
+            $unionSql .= " WHERE user_group_visibility IS NULL";
+        }
+
+        return $unionSql;
+    }
+
+    /**
+     * Builds the ORDER BY SQL clause based on sorting fields.
+     *
+     * @return string The ORDER BY SQL clause.
+     */
+    private function getOrderBySql(): string
+    {
+        $sortBy = $this->fields['posts_sort_by'] ?? 'date';
+        $sortOrder = strtoupper($this->fields['posts_sort_order'] ?? 'DESC');
+
+        // Always prioritize sticky posts
+        $orderByParts = ['is_sticky DESC'];
+
+        // Map sortBy to valid SQL columns
+        $sortColumns = [
+            'date' => 'post_date',
+            'title' => 'post_title',
+            'modified' => 'post_modified',
+            'menu_order' => 'menu_order',
+            'rand' => 'RAND()',
+        ];
+
+        if ($sortBy === 'rand') {
+            $orderByParts[] = $sortColumns['rand'];
+        } else {
+            $column = $sortColumns[$sortBy] ?? $sortColumns['date'];
+            $orderByParts[] = sprintf('%s %s', $column, $sortOrder);
+        }
+
+        return ' ORDER BY ' . implode(', ', $orderByParts);
     }
 
     private function fetchPosts(array $dbResults, array $postStatuses, int $currentBlogId): array
@@ -141,7 +209,7 @@ class GetPostsFromMultipleSites implements GetPostsInterface
             if (!$post || !in_array($post->post_status, $postStatuses, true)) {
                 return null;
             }
-            if ($item->blog_id !== $currentBlogId) {
+            if ((int)$item->blog_id !== $currentBlogId) {
                 $post->originalBlogId = $item->blog_id;
             }
             return $post;

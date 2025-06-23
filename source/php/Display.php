@@ -477,7 +477,8 @@ class Display
                 $module, 
                 $args['id']
             ], 
-            $moduleSettings['cache_ttl'] ?? 0
+            $moduleSettings['cache_ttl'] ?? 0,
+            $this->getAllAllowedAndRegisteredQueryVars() ?: null
         );
 
         if ($echo == false) {
@@ -502,6 +503,69 @@ class Display
         }
 
         return true;
+    }
+
+    /**
+     * Get all allowed and registered query vars
+     * 
+     * This function retrieves all registered and allowed query variables,
+     * merging them into a single array while filtering out any empty values.
+     *
+     * @return array An array of all allowed and registered query variables.
+     */
+    private function getAllAllowedAndRegisteredQueryVars(): array
+    {
+        $registeredQueryVars = $this->getRegisteredQueryVars();
+        $allowedQueryVars = $this->getAllowedQueryVars();
+
+        // Merge and filter out empty values
+        return array_filter(
+            array_merge($registeredQueryVars, $allowedQueryVars)
+        );
+    }
+
+    /**
+     * Get registered query vars
+     * @return array
+     */
+    private function getRegisteredQueryVars(): array
+    {
+        global $wp;
+        $result = [];
+        if (isset($wp->public_query_vars) && is_array($wp->public_query_vars)) {
+            foreach ($wp->public_query_vars as $var) {
+                $result[$var] = get_query_var($var);
+            }
+        }
+        return array_filter($result);
+    }
+
+    /**
+     * Get allowed query vars from $_GET
+     * 
+     * This function retrieves query variables from the global $_GET array that match a specific pattern.
+     * The pattern is defined to match query variables that start with 'mod-' followed by alphanumeric characters,
+     * dashes, or underscores.
+     *
+     * @return array An array of allowed query variable names.
+     */
+    private function getAllowedQueryVars(): array
+    {
+        $pattern = '/^mod-([a-z0-9\-_]+)$/i';
+        if($_GET ?? null) {
+            $queryVars = array_filter(
+                array_keys($_GET),
+                function ($var) use ($pattern) {
+                    return preg_match($pattern, $var);
+                }
+            );
+            foreach ($queryVars as $key => $value) {
+                $queryVars[$value] = sanitize_text_field($_GET[$value] ?? '');
+            }
+        } else {
+            $queryVars = [];
+        }
+        return $queryVars;
     }
 
     /**
