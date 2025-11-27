@@ -27,8 +27,8 @@
                 color: {{ $input['customTextColor'] }};
             }
 
-            #{{ $input['id'] }} .c-card:hover{
-                background-color: var({{ $input['customBackgroundColor'] }});
+            #{{ $input['id'] }} a.c-card:hover, #{{ $input['id'] }} a.c-card:focus {
+                background-color: color-mix(in srgb, var(--c-card-color-background, #ededed) 90%, white 10%);
             }
         </style>
     @endif
